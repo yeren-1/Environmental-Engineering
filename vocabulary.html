@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>背单词</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .tab-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .tab-btn.active {
+            background: white;
+            color: #667eea;
+            font-weight: bold;
+        }
+        .panel {
+            display: none;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .panel.active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #45a049;
+        }
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #da190b;
+        }
+        .word-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .word-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            transition: background 0.3s;
+        }
+        .word-item:hover {
+            background: #f9f9f9;
+        }
+        .word-item:last-child {
+            border-bottom: none;
+        }
+        .word-info {
+            flex: 1;
+        }
+        .word-text {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+        .word-translation {
+            color: #666;
+            margin-top: 5px;
+        }
+        .word-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-new {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .status-mastered {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .flashcard {
+            text-align: center;
+            padding: 60px 20px;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .flashcard-word {
+            font-size: 48px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .flashcard-translation {
+            font-size: 28px;
+            color: #667eea;
+            margin-bottom: 30px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .flashcard-translation.visible {
+            opacity: 1;
+        }
+        .flashcard-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+        .progress-text {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-item {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 10px;
+        }
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .small-btn {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+        .file-upload {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+        .file-upload:hover {
+            border-color: #667eea;
+            background: #f9f9ff;
+        }
+        .file-upload.dragover {
+            border-color: #667eea;
+            background: #f0f0ff;
+        }
+        .file-upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .file-upload-text {
+            color: #666;
+        }
+        .file-upload-hint {
+            color: #999;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        #file-input {
+            display: none;
+        }
+        .section-title {
+            margin: 30px 0 20px;
+            color: #333;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .import-result {
+            background: #f0f9ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+        .import-result.success {
+            background: #f0fff0;
+            border-color: #b3ffb3;
+        }
+        .import-result.error {
+            background: #fff0f0;
+            border-color: #ffb3b3;
+        }
+        .format-example {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 14px;
+        }
+        .validation-result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        .validation-result.loading {
+            background: #fff8e1;
+            border: 1px solid #ffd54f;
+            display: block;
+        }
+        .validation-result.success {
+            background: #e8f5e9;
+            border: 1px solid #81c784;
+            display: block;
+        }
+        .validation-result.warning {
+            background: #fff3e0;
+            border: 1px solid #ffb74d;
+            display: block;
+        }
+        .validation-result.error {
+            background: #ffebee;
+            border: 1px solid #e57373;
+            display: block;
+        }
+        .validation-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .validation-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+        .validation-item:last-child {
+            border-bottom: none;
+        }
+        .validation-word {
+            font-weight: bold;
+            min-width: 120px;
+        }
+        .validation-translation {
+            flex: 1;
+            color: #666;
+        }
+        .validation-status {
+            font-size: 20px;
+        }
+        .validation-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .checkbox-group label {
+            color: #333;
+            cursor: pointer;
+        }
+        .word-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .word-item.selected {
+            background: #fff3e0;
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 背单词</h1>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('learn')">背单词</button>
+            <button class="tab-btn" onclick="switchTab('add')">录入单词</button>
+            <button class="tab-btn" onclick="switchTab('list')">单词表</button>
+        </div>
+
+        <div id="learn-panel" class="panel active">
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-number" id="total-count">0</div>
+                    <div class="stat-label">总单词数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="new-count">0</div>
+                    <div class="stat-label">待学习</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="mastered-count">0</div>
+                    <div class="stat-label">已熟练</div>
+                </div>
+            </div>
+
+            <div id="flashcard-container">
+                <div class="empty-state" id="empty-state">
+                    <div class="empty-state-icon">📝</div>
+                    <p>还没有单词，快去录入吧！</p>
+                </div>
+                <div id="flashcard" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <div class="progress-text" id="progress-text">1 / 1</div>
+                    <div class="flashcard">
+                        <div class="flashcard-word" id="flashcard-word"></div>
+                        <div class="flashcard-translation" id="flashcard-translation"></div>
+                        <div class="flashcard-actions">
+                            <button class="btn btn-primary" id="show-translation-btn" onclick="showTranslation()">显示翻译</button>
+                            <button class="btn btn-success" id="next-btn" onclick="nextWord()" style="display: none;">下一步</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="add-panel" class="panel">
+            <h2 style="margin-bottom: 20px; color: #333;">导入 Word 文档</h2>
+            <div class="checkbox-group">
+                <input type="checkbox" id="validate-import" checked>
+                <label for="validate-import">验证翻译正确性（推荐开启）</label>
+            </div>
+            <div class="file-upload" id="file-upload">
+                <div class="file-upload-icon">📄</div>
+                <div class="file-upload-text">点击或拖拽 Word 文档到此处</div>
+                <div class="file-upload-hint">支持 .docx 格式</div>
+            </div>
+            <input type="file" id="file-input" accept=".docx">
+            <div class="validation-result" id="validation-result"></div>
+            <div class="import-result" id="import-result"></div>
+            
+            <div class="form-group" style="margin-top: 20px;">
+                <label>格式说明</label>
+                <p style="color: #666; font-size: 14px;">每行可包含多个单词，格式为：单词/词组 翻译  单词/词组 翻译</p>
+                <p style="color: #666; font-size: 14px;">单词和翻译之间用空格分隔，多个单词之间用两个或以上空格分隔</p>
+                <div class="format-example">apple 苹果  banana 香蕉  orange 橙子
+hello world 你好世界  good morning 早上好</div>
+            </div>
+
+            <h2 class="section-title">单个录入</h2>
+            <div class="form-group">
+                <label>单词/词组</label>
+                <input type="text" id="word-input" placeholder="输入英文单词或词组">
+            </div>
+            <div class="form-group">
+                <label>中文翻译</label>
+                <input type="text" id="translation-input" placeholder="输入中文翻译">
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="validate-single" checked>
+                <label for="validate-single">验证翻译正确性</label>
+            </div>
+            <button class="btn btn-primary" id="add-word-btn" onclick="addWord()">添加单词</button>
+            <div class="validation-result" id="single-validation-result"></div>
+            
+            <h2 class="section-title">批量录入</h2>
+            <div class="form-group">
+                <label>批量输入（每行一个，格式：单词 - 中文翻译）</label>
+                <textarea id="batch-input" placeholder="apple - 苹果&#10;banana - 香蕉&#10;hello world - 你好世界"></textarea>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="validate-batch" checked>
+                <label for="validate-batch">验证翻译正确性</label>
+            </div>
+            <button class="btn btn-primary" id="batch-add-btn" onclick="batchAdd()">批量添加</button>
+            <div class="validation-result" id="batch-validation-result"></div>
+        </div>
+
+        <div id="list-panel" class="panel">
+            <h2 style="margin-bottom: 20px; color: #333;">单词表</h2>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
+                <button class="btn btn-secondary small-btn" onclick="toggleSelectAll()">全选/取消全选</button>
+                <button class="btn btn-danger small-btn" onclick="deleteSelected()" id="delete-selected-btn" style="display: none;">删除选中 (<span id="selected-count">0</span>)</button>
+                <span id="selection-hint" style="color: #999; font-size: 14px;"></span>
+            </div>
+            <div class="word-list" id="word-list">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <p>单词表是空的</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let words = JSON.parse(localStorage.getItem('words')) || [];
+        let currentIndex = 0;
+        let learningWords = [];
+        let showingTranslation = false;
+        let pendingWords = [];
+
+        function saveWords() {
+            localStorage.setItem('words', JSON.stringify(words));
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tab + '-panel').classList.add('active');
+            
+            if (tab === 'learn') {
+                updateStats();
+                startLearning();
+            } else if (tab === 'list') {
+                renderWordList();
+            }
+        }
+
+        const fileUpload = document.getElementById('file-upload');
+        const fileInput = document.getElementById('file-input');
+
+        fileUpload.addEventListener('click', () => fileInput.click());
+        
+        fileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUpload.classList.add('dragover');
+        });
+        
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.classList.remove('dragover');
+        });
+        
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        async function handleFile(file) {
+            if (!file.name.endsWith('.docx')) {
+                showImportResult('请上传 .docx 格式的 Word 文档', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const arrayBuffer = e.target.result;
+                try {
+                    const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                    const text = result.value;
+                    const parsedWords = parseWordText(text);
+                    
+                    if (parsedWords.length === 0) {
+                        showImportResult('未能从文档中解析出单词，请检查格式', 'error');
+                        return;
+                    }
+
+                    const shouldValidate = document.getElementById('validate-import').checked;
+                    
+                    if (shouldValidate) {
+                        await validateAndShowWords(parsedWords, 'validation-result');
+                    } else {
+                        addWordsDirectly(parsedWords);
+                    }
+                } catch (err) {
+                    showImportResult('解析文档失败：' + err.message, 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            fileInput.value = '';
+        }
+
+        function parseWordText(text) {
+            const result = [];
+            const lines = text.split('\n');
+            
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+                
+                const parsed = parseLine(line);
+                result.push(...parsed);
+            });
+            
+            return result;
+        }
+
+        function parseLine(line) {
+            const result = [];
+            line = line.trim();
+            if (!line) return result;
+            
+            const segments = line.split(/\s{2,}/);
+            
+            segments.forEach(segment => {
+                segment = segment.trim();
+                if (!segment) return;
+                
+                const parsed = parseSegment(segment);
+                result.push(...parsed);
+            });
+            
+            return result;
+        }
+
+        function parseSegment(segment) {
+            const result = [];
+            segment = segment.trim();
+            if (!segment) return result;
+            
+            const chinesePattern = /[\u4e00-\u9fa5]/;
+            
+            let current = segment;
+            
+            while (current.length > 0) {
+                const firstChineseIndex = current.search(chinesePattern);
+                
+                if (firstChineseIndex === -1) {
+                    break;
+                }
+                
+                const wordPart = current.substring(0, firstChineseIndex).trim();
+                
+                let translationEnd = current.length;
+                const nextEnglishMatch = current.substring(firstChineseIndex).match(/[a-zA-Z]/);
+                if (nextEnglishMatch) {
+                    const nextEnglishIndex = firstChineseIndex + nextEnglishMatch.index;
+                    const beforeEnglish = current.substring(firstChineseIndex, nextEnglishIndex);
+                    const lastSpaceInTranslation = beforeEnglish.lastIndexOf(' ');
+                    if (lastSpaceInTranslation > 0) {
+                        translationEnd = firstChineseIndex + lastSpaceInTranslation;
+                    }
+                }
+                
+                const translationPart = current.substring(firstChineseIndex, translationEnd).trim();
+                
+                if (wordPart && translationPart && isEnglish(wordPart) && !isEnglish(translationPart)) {
+                    result.push({ word: wordPart, translation: translationPart });
+                }
+                
+                current = current.substring(translationEnd).trim();
+            }
+            
+            return result;
+        }
+
+        function isEnglish(text) {
+            return /^[a-zA-Z\s\-']+$/.test(text);
+        }
+
+        function containsChinese(text) {
+            return /[\u4e00-\u9fa5]/.test(text);
+        }
+
+        async function validateTranslation(word, translation) {
+            try {
+                const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|zh`);
+                const data = await response.json();
+                
+                if (data.responseStatus === 200) {
+                    const apiTranslation = data.responseData.translatedText.toLowerCase();
+                    const userTranslation = translation.toLowerCase();
+                    
+                    const similarity = calculateSimilarity(apiTranslation, userTranslation);
+                    
+                    return {
+                        valid: similarity > 0.3,
+                        apiTranslation: data.responseData.translatedText,
+                        similarity: similarity
+                    };
+                }
+                return { valid: true, apiTranslation: null, similarity: 1 };
+            } catch (error) {
+                console.error('Translation validation error:', error);
+                return { valid: true, apiTranslation: null, similarity: 1 };
+            }
+        }
+
+        function calculateSimilarity(str1, str2) {
+            const s1 = str1.toLowerCase().replace(/\s+/g, '');
+            const s2 = str2.toLowerCase().replace(/\s+/g, '');
+            
+            if (s1 === s2) return 1;
+            if (s1.includes(s2) || s2.includes(s1)) return 0.8;
+            
+            const set1 = new Set(s1);
+            const set2 = new Set(s2);
+            const intersection = new Set([...set1].filter(x => set2.has(x)));
+            const union = new Set([...set1, ...set2]);
+            
+            return intersection.size / union.size;
+        }
+
+        async function validateAndShowWords(wordList, resultElementId) {
+            const resultDiv = document.getElementById(resultElementId);
+            resultDiv.className = 'validation-result loading';
+            resultDiv.innerHTML = '<span class="spinner"></span>正在验证翻译...';
+            resultDiv.style.display = 'block';
+
+            const validFormatWords = wordList.filter(w => !containsChinese(w.word));
+            const formatErrorWords = wordList.filter(w => containsChinese(w.word));
+
+            const validatedWords = [];
+            
+            for (const w of validFormatWords) {
+                const validation = await validateTranslation(w.word, w.translation);
+                validatedWords.push({
+                    ...w,
+                    validation: validation
+                });
+            }
+
+            const { existing: duplicateWords, newWords: uniqueValidWords } = filterDuplicateWords(validatedWords.filter(w => w.validation.valid));
+            pendingWords = uniqueValidWords;
+            const invalidWords = validatedWords.filter(w => !w.validation.valid);
+
+            let html = '<div class="validation-title">验证结果：</div>';
+            
+            if (formatErrorWords.length > 0) {
+                html += '<div style="color: #c62828; margin-bottom: 10px;">🚫 格式错误（单词包含中文，已排除）：</div>';
+                formatErrorWords.forEach(w => {
+                    html += `
+                        <div class="validation-item">
+                            <span class="validation-word" style="color: #c62828;">${escapeHtml(w.word)}</span>
+                            <span class="validation-translation">${escapeHtml(w.translation)}</span>
+                            <span class="validation-status">🚫</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (duplicateWords.length > 0) {
+                html += '<div style="color: #1565c0; margin: 10px 0;">📋 已存在的单词（已跳过）：</div>';
+                duplicateWords.forEach(w => {
+                    html += `
+                        <div class="validation-item">
+                            <span class="validation-word">${escapeHtml(w.word)}</span>
+                            <span class="validation-translation">${escapeHtml(w.translation)}</span>
+                            <span class="validation-status">📋</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (pendingWords.length > 0) {
+                html += '<div style="color: #2e7d32; margin: 10px 0;">✅ 通过验证的单词：</div>';
+                pendingWords.forEach(w => {
+                    html += `
+                        <div class="validation-item">
+                            <span class="validation-word">${escapeHtml(w.word)}</span>
+                            <span class="validation-translation">${escapeHtml(w.translation)}</span>
+                            <span class="validation-status">✅</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (invalidWords.length > 0) {
+                html += '<div style="color: #e65100; margin: 10px 0;">⚠️ 翻译可能有误（已排除）：</div>';
+                invalidWords.forEach(w => {
+                    html += `
+                        <div class="validation-item">
+                            <span class="validation-word">${escapeHtml(w.word)}</span>
+                            <span class="validation-translation">
+                                ${escapeHtml(w.translation)}
+                                <br><small style="color: #999;">建议翻译：${escapeHtml(w.validation.apiTranslation || '无')}</small>
+                            </span>
+                            <span class="validation-status">❌</span>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `
+                <div style="margin-top: 15px; color: #666;">
+                    共 ${wordList.length} 个单词，${pendingWords.length} 个通过验证，${formatErrorWords.length + invalidWords.length + duplicateWords.length} 个被排除
+                    ${formatErrorWords.length > 0 ? '<br><small style="color: #c62828;">（其中 ' + formatErrorWords.length + ' 个格式错误）</small>' : ''}
+                    ${duplicateWords.length > 0 ? '<br><small style="color: #1565c0;">（其中 ' + duplicateWords.length + ' 个已存在）</small>' : ''}
+                </div>
+            `;
+
+            if (pendingWords.length > 0) {
+                html += `
+                    <div class="validation-actions">
+                        <button class="btn btn-success" onclick="confirmAddPendingWords()">确认添加 (${pendingWords.length})</button>
+                        <button class="btn btn-secondary" onclick="cancelValidation()">取消</button>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="validation-actions">
+                        <button class="btn btn-secondary" onclick="cancelValidation()">关闭</button>
+                    </div>
+                `;
+            }
+
+            resultDiv.className = pendingWords.length > 0 ? 'validation-result success' : 'validation-result warning';
+            resultDiv.innerHTML = html;
+        }
+
+        function confirmAddPendingWords() {
+            pendingWords.forEach(w => {
+                words.push({
+                    id: Date.now() + Math.random(),
+                    word: w.word,
+                    translation: w.translation,
+                    mastered: false,
+                    createdAt: new Date().toISOString()
+                });
+            });
+            saveWords();
+            
+            document.getElementById('validation-result').style.display = 'none';
+            document.getElementById('batch-validation-result').style.display = 'none';
+            showImportResult(`成功添加 ${pendingWords.length} 个单词！`, 'success');
+            pendingWords = [];
+        }
+
+        function cancelValidation() {
+            document.getElementById('validation-result').style.display = 'none';
+            document.getElementById('batch-validation-result').style.display = 'none';
+            document.getElementById('single-validation-result').style.display = 'none';
+            pendingWords = [];
+        }
+
+        function addWordsDirectly(wordList) {
+            wordList.forEach(w => {
+                words.push({
+                    id: Date.now() + Math.random(),
+                    word: w.word,
+                    translation: w.translation,
+                    mastered: false,
+                    createdAt: new Date().toISOString()
+                });
+            });
+            saveWords();
+            showImportResult(`成功导入 ${wordList.length} 个单词！`, 'success');
+        }
+
+        function showImportResult(message, type) {
+            const resultDiv = document.getElementById('import-result');
+            resultDiv.textContent = message;
+            resultDiv.className = 'import-result ' + type;
+            resultDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                resultDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function isWordExists(word) {
+            const normalizedWord = word.toLowerCase().trim();
+            return words.some(w => w.word.toLowerCase().trim() === normalizedWord);
+        }
+
+        function filterDuplicateWords(wordList) {
+            const existing = [];
+            const newWords = [];
+            
+            wordList.forEach(w => {
+                if (isWordExists(w.word)) {
+                    existing.push(w);
+                } else {
+                    newWords.push(w);
+                }
+            });
+            
+            return { existing, newWords };
+        }
+
+        async function addWord() {
+            const wordInput = document.getElementById('word-input');
+            const translationInput = document.getElementById('translation-input');
+            const addBtn = document.getElementById('add-word-btn');
+            
+            const word = wordInput.value.trim();
+            const translation = translationInput.value.trim();
+            
+            if (!word || !translation) {
+                alert('请填写完整信息！');
+                return;
+            }
+
+            if (isWordExists(word)) {
+                const resultDiv = document.getElementById('single-validation-result');
+                resultDiv.className = 'validation-result warning';
+                resultDiv.innerHTML = `
+                    <div class="validation-title">⚠️ 单词已存在</div>
+                    <div class="validation-item">
+                        <span class="validation-word">${escapeHtml(word)}</span>
+                        <span class="validation-translation">${escapeHtml(translation)}</span>
+                        <span class="validation-status">⚠️</span>
+                    </div>
+                    <div style="color: #e65100; margin-top: 10px;">该单词已在单词表中，无需重复录入。</div>
+                    <div class="validation-actions">
+                        <button class="btn btn-secondary" onclick="cancelValidation()">关闭</button>
+                    </div>
+                `;
+                resultDiv.style.display = 'block';
+                return;
+            }
+
+            if (containsChinese(word)) {
+                const resultDiv = document.getElementById('single-validation-result');
+                resultDiv.className = 'validation-result error';
+                resultDiv.innerHTML = `
+                    <div class="validation-title">🚫 格式错误</div>
+                    <div class="validation-item">
+                        <span class="validation-word" style="color: #c62828;">${escapeHtml(word)}</span>
+                        <span class="validation-translation">${escapeHtml(translation)}</span>
+                        <span class="validation-status">🚫</span>
+                    </div>
+                    <div style="color: #c62828; margin-top: 10px;">单词部分不能包含中文！请检查是否录入格式有误。</div>
+                    <div class="validation-actions">
+                        <button class="btn btn-secondary" onclick="cancelValidation()">关闭</button>
+                    </div>
+                `;
+                resultDiv.style.display = 'block';
+                return;
+            }
+
+            const shouldValidate = document.getElementById('validate-single').checked;
+            
+            if (shouldValidate) {
+                addBtn.disabled = true;
+                const resultDiv = document.getElementById('single-validation-result');
+                resultDiv.className = 'validation-result loading';
+                resultDiv.innerHTML = '<span class="spinner"></span>正在验证翻译...';
+                resultDiv.style.display = 'block';
+
+                const validation = await validateTranslation(word, translation);
+                
+                addBtn.disabled = false;
+
+                if (validation.valid) {
+                    words.push({
+                        id: Date.now(),
+                        word: word,
+                        translation: translation,
+                        mastered: false,
+                        createdAt: new Date().toISOString()
+                    });
+                    
+                    saveWords();
+                    wordInput.value = '';
+                    translationInput.value = '';
+                    
+                    resultDiv.className = 'validation-result success';
+                    resultDiv.innerHTML = `
+                        <div class="validation-title">✅ 验证通过，已添加！</div>
+                        <div class="validation-item">
+                            <span class="validation-word">${escapeHtml(word)}</span>
+                            <span class="validation-translation">${escapeHtml(translation)}</span>
+                            <span class="validation-status">✅</span>
+                        </div>
+                    `;
+                    
+                    setTimeout(() => {
+                        resultDiv.style.display = 'none';
+                    }, 3000);
+                } else {
+                    resultDiv.className = 'validation-result warning';
+                    resultDiv.innerHTML = `
+                        <div class="validation-title">⚠️ 翻译可能有误</div>
+                        <div class="validation-item">
+                            <span class="validation-word">${escapeHtml(word)}</span>
+                            <span class="validation-translation">
+                                ${escapeHtml(translation)}
+                                <br><small style="color: #999;">建议翻译：${escapeHtml(validation.apiTranslation || '无')}</small>
+                            </span>
+                            <span class="validation-status">❌</span>
+                        </div>
+                        <div class="validation-actions">
+                            <button class="btn btn-secondary" onclick="forceAddWord('${escapeHtml(word)}', '${escapeHtml(translation)}')">仍然添加</button>
+                            <button class="btn btn-secondary" onclick="cancelValidation()">取消</button>
+                        </div>
+                    `;
+                }
+            } else {
+                words.push({
+                    id: Date.now(),
+                    word: word,
+                    translation: translation,
+                    mastered: false,
+                    createdAt: new Date().toISOString()
+                });
+                
+                saveWords();
+                wordInput.value = '';
+                translationInput.value = '';
+                alert('添加成功！');
+            }
+        }
+
+        function forceAddWord(word, translation) {
+            words.push({
+                id: Date.now(),
+                word: word,
+                translation: translation,
+                mastered: false,
+                createdAt: new Date().toISOString()
+            });
+            
+            saveWords();
+            document.getElementById('word-input').value = '';
+            document.getElementById('translation-input').value = '';
+            document.getElementById('single-validation-result').style.display = 'none';
+            alert('添加成功！');
+        }
+
+        async function batchAdd() {
+            const batchInput = document.getElementById('batch-input');
+            const batchBtn = document.getElementById('batch-add-btn');
+            const lines = batchInput.value.trim().split('\n');
+            
+            if (!batchInput.value.trim()) {
+                alert('请输入内容！');
+                return;
+            }
+            
+            const parsedWords = [];
+            const formatErrorLines = [];
+            
+            lines.forEach((line, index) => {
+                const parts = line.split('-').map(s => s.trim());
+                if (parts.length >= 2 && parts[0] && parts[1]) {
+                    const word = parts[0];
+                    const translation = parts.slice(1).join('-').trim();
+                    
+                    if (containsChinese(word)) {
+                        formatErrorLines.push({ line: index + 1, word, translation });
+                    } else {
+                        parsedWords.push({ word, translation });
+                    }
+                }
+            });
+
+            if (parsedWords.length === 0 && formatErrorLines.length === 0) {
+                alert('未能解析出有效单词！');
+                return;
+            }
+
+            if (formatErrorLines.length > 0) {
+                const resultDiv = document.getElementById('batch-validation-result');
+                let html = `
+                    <div class="validation-title">🚫 发现格式错误</div>
+                    <div style="color: #c62828; margin-bottom: 10px;">以下 ${formatErrorLines.length} 个单词包含中文，已排除：</div>
+                `;
+                formatErrorLines.forEach(item => {
+                    html += `
+                        <div class="validation-item">
+                            <span class="validation-word" style="color: #c62828;">${escapeHtml(item.word)}</span>
+                            <span class="validation-translation">${escapeHtml(item.translation)}</span>
+                            <span class="validation-status">🚫</span>
+                        </div>
+                    `;
+                });
+                
+                if (parsedWords.length > 0) {
+                    html += `
+                        <div style="margin-top: 15px; color: #666;">
+                            还有 ${parsedWords.length} 个格式正确的单词待验证
+                        </div>
+                        <div class="validation-actions">
+                            <button class="btn btn-primary" onclick="continueBatchValidation()">继续验证</button>
+                            <button class="btn btn-secondary" onclick="cancelValidation()">取消</button>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="validation-actions">
+                            <button class="btn btn-secondary" onclick="cancelValidation()">关闭</button>
+                        </div>
+                    `;
+                }
+                
+                resultDiv.className = 'validation-result error';
+                resultDiv.innerHTML = html;
+                resultDiv.style.display = 'block';
+                
+                window.pendingBatchWords = parsedWords;
+                return;
+            }
+
+            const shouldValidate = document.getElementById('validate-batch').checked;
+            
+            if (shouldValidate) {
+                await validateAndShowWords(parsedWords, 'batch-validation-result');
+            } else {
+                addWordsDirectly(parsedWords);
+                batchInput.value = '';
+            }
+        }
+
+        async function continueBatchValidation() {
+            const parsedWords = window.pendingBatchWords || [];
+            window.pendingBatchWords = null;
+            
+            if (parsedWords.length === 0) {
+                document.getElementById('batch-validation-result').style.display = 'none';
+                return;
+            }
+            
+            const shouldValidate = document.getElementById('validate-batch').checked;
+            
+            if (shouldValidate) {
+                await validateAndShowWords(parsedWords, 'batch-validation-result');
+            } else {
+                addWordsDirectly(parsedWords);
+                document.getElementById('batch-input').value = '';
+                document.getElementById('batch-validation-result').style.display = 'none';
+            }
+        }
+
+        function renderWordList() {
+            const listContainer = document.getElementById('word-list');
+            
+            if (words.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>单词表是空的</p>
+                    </div>
+                `;
+                document.getElementById('delete-selected-btn').style.display = 'none';
+                document.getElementById('selection-hint').textContent = '';
+                return;
+            }
+            
+            listContainer.innerHTML = words.map(w => `
+                <div class="word-item" data-id="${w.id}">
+                    <input type="checkbox" class="word-checkbox" data-id="${w.id}" onchange="updateSelection()">
+                    <div class="word-info">
+                        <div class="word-text">${escapeHtml(w.word)}</div>
+                        <div class="word-translation">${escapeHtml(w.translation)}</div>
+                    </div>
+                    <div class="word-actions">
+                        <span class="status-badge ${w.mastered ? 'status-mastered' : 'status-new'}">
+                            ${w.mastered ? '已熟练' : '待学习'}
+                        </span>
+                        <button class="btn small-btn ${w.mastered ? 'btn-secondary' : 'btn-success'}" 
+                                onclick="toggleMastered(${w.id})">
+                            ${w.mastered ? '取消熟练' : '标记熟练'}
+                        </button>
+                        <button class="btn small-btn btn-danger" onclick="deleteWord(${w.id})">删除</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            updateSelection();
+        }
+
+        function updateSelection() {
+            const checkboxes = document.querySelectorAll('.word-checkbox');
+            const checkedBoxes = document.querySelectorAll('.word-checkbox:checked');
+            const count = checkedBoxes.length;
+            
+            const deleteBtn = document.getElementById('delete-selected-btn');
+            const countSpan = document.getElementById('selected-count');
+            const hintSpan = document.getElementById('selection-hint');
+            
+            if (count > 0) {
+                deleteBtn.style.display = 'inline-block';
+                countSpan.textContent = count;
+                hintSpan.textContent = `已选中 ${count} 个`;
+            } else {
+                deleteBtn.style.display = 'none';
+                hintSpan.textContent = '';
+            }
+            
+            checkboxes.forEach(checkbox => {
+                const item = checkbox.closest('.word-item');
+                if (checkbox.checked) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+        }
+
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('.word-checkbox');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = !allChecked;
+            });
+            
+            updateSelection();
+        }
+
+        function deleteSelected() {
+            const checkedBoxes = document.querySelectorAll('.word-checkbox:checked');
+            const idsToDelete = Array.from(checkedBoxes).map(cb => parseFloat(cb.dataset.id));
+            
+            if (idsToDelete.length === 0) return;
+            
+            if (confirm(`确定要删除选中的 ${idsToDelete.length} 个单词吗？`)) {
+                words = words.filter(w => !idsToDelete.includes(w.id));
+                saveWords();
+                renderWordList();
+                updateStats();
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function toggleMastered(id) {
+            const word = words.find(w => w.id === id);
+            if (word) {
+                word.mastered = !word.mastered;
+                saveWords();
+                renderWordList();
+                updateStats();
+            }
+        }
+
+        function deleteWord(id) {
+            if (confirm('确定要删除这个单词吗？')) {
+                words = words.filter(w => w.id !== id);
+                saveWords();
+                renderWordList();
+                updateStats();
+            }
+        }
+
+        function updateStats() {
+            const total = words.length;
+            const mastered = words.filter(w => w.mastered).length;
+            const newWords = total - mastered;
+            
+            document.getElementById('total-count').textContent = total;
+            document.getElementById('new-count').textContent = newWords;
+            document.getElementById('mastered-count').textContent = mastered;
+        }
+
+        function startLearning() {
+            learningWords = words.filter(w => !w.mastered);
+            currentIndex = 0;
+            
+            if (learningWords.length === 0) {
+                document.getElementById('empty-state').style.display = 'block';
+                document.getElementById('flashcard').style.display = 'none';
+            } else {
+                document.getElementById('empty-state').style.display = 'none';
+                document.getElementById('flashcard').style.display = 'block';
+                showCurrentWord();
+            }
+        }
+
+        function showCurrentWord() {
+            if (currentIndex >= learningWords.length) {
+                currentIndex = 0;
+            }
+            
+            const word = learningWords[currentIndex];
+            document.getElementById('flashcard-word').textContent = word.word;
+            document.getElementById('flashcard-translation').textContent = word.translation;
+            document.getElementById('flashcard-translation').classList.remove('visible');
+            
+            document.getElementById('show-translation-btn').style.display = 'inline-block';
+            document.getElementById('next-btn').style.display = 'none';
+            
+            showingTranslation = false;
+            
+            updateProgress();
+        }
+
+        function showTranslation() {
+            document.getElementById('flashcard-translation').classList.add('visible');
+            document.getElementById('show-translation-btn').style.display = 'none';
+            document.getElementById('next-btn').style.display = 'inline-block';
+            showingTranslation = true;
+        }
+
+        function nextWord() {
+            currentIndex++;
+            if (currentIndex >= learningWords.length) {
+                alert('🎉 恭喜！你已经复习完所有单词！');
+                currentIndex = 0;
+            }
+            showCurrentWord();
+        }
+
+        function updateProgress() {
+            const total = learningWords.length;
+            const current = currentIndex + 1;
+            const percentage = (current / total) * 100;
+            
+            document.getElementById('progress-fill').style.width = percentage + '%';
+            document.getElementById('progress-text').textContent = `${current} / ${total}`;
+        }
+
+        updateStats();
+        startLearning();
+    </script>
+</body>
+</html>
