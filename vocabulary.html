@@ -423,6 +423,7 @@
         
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('learn')">背单词</button>
+            <button class="tab-btn" onclick="switchTab('star')">⭐ 重点词</button>
             <button class="tab-btn" onclick="switchTab('add')">录入单词</button>
             <button class="tab-btn" onclick="switchTab('list')">单词表</button>
         </div>
@@ -440,6 +441,10 @@
                 <div class="stat-item">
                     <div class="stat-number" id="mastered-count">0</div>
                     <div class="stat-label">已熟练</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="star-count">0</div>
+                    <div class="stat-label">重点词</div>
                 </div>
             </div>
 
@@ -459,8 +464,21 @@
                         <div class="flashcard-actions">
                             <button class="btn btn-primary" id="show-translation-btn" onclick="showTranslation()">显示翻译</button>
                             <button class="btn btn-success" id="next-btn" onclick="nextWord()" style="display: none;">下一步</button>
+                            <button class="btn btn-success" id="master-btn" onclick="markCurrentMastered()" style="display: none;">✓ 标熟</button>
+                            <button class="btn" id="star-btn" onclick="toggleCurrentStar()" style="background: none; border: none; font-size: 28px; padding: 0 10px; display: none; cursor: pointer;">⭐</button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="star-panel" class="panel">
+            <h2 style="margin-bottom: 20px; color: #333;">⭐ 重点词</h2>
+            <div class="word-list" id="star-list">
+                <div class="empty-state">
+                    <div class="empty-state-icon">⭐</div>
+                    <p>还没有标记重点词</p>
+                    <p style="font-size: 14px; margin-top: 10px;">背单词时点击「⭐ 标重点」按钮即可添加</p>
                 </div>
             </div>
         </div>
@@ -519,7 +537,7 @@ hello world 你好世界  good morning 早上好</div>
 
         <div id="list-panel" class="panel">
             <h2 style="margin-bottom: 20px; color: #333;">单词表</h2>
-            <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
                 <button class="btn btn-secondary small-btn" onclick="toggleSelectAll()">全选/取消全选</button>
                 <button class="btn btn-danger small-btn" onclick="deleteSelected()" id="delete-selected-btn" style="display: none;">删除选中 (<span id="selected-count">0</span>)</button>
                 <span id="selection-hint" style="color: #999; font-size: 14px;"></span>
@@ -556,6 +574,8 @@ hello world 你好世界  good morning 早上好</div>
                 startLearning();
             } else if (tab === 'list') {
                 renderWordList();
+            } else if (tab === 'star') {
+                renderStarList();
             }
         }
 
@@ -1180,13 +1200,17 @@ hello world 你好世界  good morning 早上好</div>
                 <div class="word-item" data-id="${w.id}">
                     <input type="checkbox" class="word-checkbox" data-id="${w.id}" onchange="updateSelection()">
                     <div class="word-info">
-                        <div class="word-text">${escapeHtml(w.word)}</div>
+                        <div class="word-text">${escapeHtml(w.word)} ${w.starred ? '<span style="color: #ffa000;">⭐</span>' : ''}</div>
                         <div class="word-translation">${escapeHtml(w.translation)}</div>
                     </div>
                     <div class="word-actions">
                         <span class="status-badge ${w.mastered ? 'status-mastered' : 'status-new'}">
                             ${w.mastered ? '已熟练' : '待学习'}
                         </span>
+                        <button class="btn small-btn ${w.starred ? 'btn-secondary' : ''}" style="${!w.starred ? 'background: #fff3e0; color: #e65100;' : ''}" 
+                                onclick="toggleStar(${w.id})">
+                            ${w.starred ? '取消重点' : '⭐ 重点'}
+                        </button>
                         <button class="btn small-btn ${w.mastered ? 'btn-secondary' : 'btn-success'}" 
                                 onclick="toggleMastered(${w.id})">
                             ${w.mastered ? '取消熟练' : '标记熟练'}
@@ -1268,6 +1292,16 @@ hello world 你好世界  good morning 早上好</div>
             }
         }
 
+        function toggleStar(id) {
+            const word = words.find(w => w.id === id);
+            if (word) {
+                word.starred = !word.starred;
+                saveWords();
+                renderWordList();
+                updateStats();
+            }
+        }
+
         function deleteWord(id) {
             if (confirm('确定要删除这个单词吗？')) {
                 words = words.filter(w => w.id !== id);
@@ -1281,10 +1315,12 @@ hello world 你好世界  good morning 早上好</div>
             const total = words.length;
             const mastered = words.filter(w => w.mastered).length;
             const newWords = total - mastered;
+            const starred = words.filter(w => w.starred).length;
             
             document.getElementById('total-count').textContent = total;
             document.getElementById('new-count').textContent = newWords;
             document.getElementById('mastered-count').textContent = mastered;
+            document.getElementById('star-count').textContent = starred;
         }
 
         function startLearning() {
@@ -1313,6 +1349,8 @@ hello world 你好世界  good morning 早上好</div>
             
             document.getElementById('show-translation-btn').style.display = 'inline-block';
             document.getElementById('next-btn').style.display = 'none';
+            document.getElementById('star-btn').style.display = 'none';
+            document.getElementById('master-btn').style.display = 'none';
             
             showingTranslation = false;
             
@@ -1323,7 +1361,104 @@ hello world 你好世界  good morning 早上好</div>
             document.getElementById('flashcard-translation').classList.add('visible');
             document.getElementById('show-translation-btn').style.display = 'none';
             document.getElementById('next-btn').style.display = 'inline-block';
+            document.getElementById('star-btn').style.display = 'inline-block';
+            document.getElementById('master-btn').style.display = 'inline-block';
+            
+            const word = learningWords[currentIndex];
+            const starBtn = document.getElementById('star-btn');
+            if (word.starred) {
+                starBtn.textContent = '⭐';
+                starBtn.style.opacity = '1';
+            } else {
+                starBtn.textContent = '☆';
+                starBtn.style.opacity = '0.5';
+            }
+            
             showingTranslation = true;
+        }
+
+        function markCurrentMastered() {
+            const word = learningWords[currentIndex];
+            const originalWord = words.find(w => w.id === word.id);
+            if (originalWord) {
+                originalWord.mastered = true;
+                saveWords();
+                updateStats();
+                
+                learningWords = words.filter(w => !w.mastered);
+                
+                if (learningWords.length === 0) {
+                    alert('🎉 恭喜！所有单词都已熟练！');
+                    document.getElementById('empty-state').style.display = 'block';
+                    document.getElementById('flashcard').style.display = 'none';
+                    return;
+                }
+                
+                if (currentIndex >= learningWords.length) {
+                    currentIndex = 0;
+                }
+                showCurrentWord();
+            }
+        }
+
+        function toggleCurrentStar() {
+            const word = learningWords[currentIndex];
+            word.starred = !word.starred;
+            
+            const originalWord = words.find(w => w.id === word.id);
+            if (originalWord) {
+                originalWord.starred = word.starred;
+            }
+            
+            saveWords();
+            updateStats();
+            
+            const starBtn = document.getElementById('star-btn');
+            if (word.starred) {
+                starBtn.textContent = '⭐';
+                starBtn.style.opacity = '1';
+            } else {
+                starBtn.textContent = '☆';
+                starBtn.style.opacity = '0.5';
+            }
+        }
+
+        function renderStarList() {
+            const listContainer = document.getElementById('star-list');
+            const starredWords = words.filter(w => w.starred);
+            
+            if (starredWords.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⭐</div>
+                        <p>还没有标记重点词</p>
+                        <p style="font-size: 14px; margin-top: 10px;">背单词时点击「⭐ 标重点」按钮即可添加</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            listContainer.innerHTML = starredWords.map(w => `
+                <div class="word-item">
+                    <div class="word-info">
+                        <div class="word-text">${escapeHtml(w.word)} <span style="color: #ffa000;">⭐</span></div>
+                        <div class="word-translation">${escapeHtml(w.translation)}</div>
+                    </div>
+                    <div class="word-actions">
+                        <button class="btn small-btn btn-secondary" onclick="removeStar(${w.id})">取消重点</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function removeStar(id) {
+            const word = words.find(w => w.id === id);
+            if (word) {
+                word.starred = false;
+                saveWords();
+                renderStarList();
+                updateStats();
+            }
         }
 
         function nextWord() {
